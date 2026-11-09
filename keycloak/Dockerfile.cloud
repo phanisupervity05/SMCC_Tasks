@@ -1,0 +1,24 @@
+# keycloak/Dockerfile.cloud
+# Production Keycloak image for Google Cloud Run with Cloud SQL PostgreSQL
+
+FROM quay.io/keycloak/keycloak:24.0.4
+
+# Enable health and metrics support for Cloud Run health checks
+ENV KC_HEALTH_ENABLED=true
+ENV KC_METRICS_ENABLED=true
+
+# Copy the realm import file
+COPY import/supervity-realm.json /opt/keycloak/data/import/realm.json
+
+# Copy custom Supervity theme (removes Keycloak branding from login pages)
+COPY themes/supervity /opt/keycloak/themes/supervity
+
+# Build the image with PostgreSQL support and LOCAL cache (required for serverless)
+# --cache=local disables Infinispan clustering which requires UDP multicast (not available in Cloud Run)
+RUN /opt/keycloak/bin/kc.sh build --db=postgres --cache=local
+
+# Launch Keycloak with optimized settings and import the realm
+# - start: Production mode (not start-dev)
+# - --import-realm: Auto-import realm on first boot
+# - --optimized: Use the pre-built optimized configuration
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh", "start", "--optimized", "--import-realm"]

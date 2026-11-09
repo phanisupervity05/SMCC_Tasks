@@ -1,0 +1,30 @@
+# packages/requirements.txt
+# Core Application Dependencies
+fastapi
+uvicorn
+gunicorn
+gitingest
+python-jose[cryptography]
+requests
+httpx
+geoip2
+python-multipart
+email-validator
+openpyxl  # Excel export for audit logs
+
+# Cloud Storage
+google-cloud-storage
+
+# AI / Gemini Integration
+google-genai
+
+# --- Development & Code Quality Tools ---
+black
+isort
+flake8
+pytest
+pytest-asyncio
+python-json-logger
+sqlalchemy
+psycopg2-binary
+alembic
