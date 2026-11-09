@@ -239,7 +239,7 @@ export default function DropCallPage() {
               <Field id='customer_name' label='Customer name' error={fieldError('customer_name')}>
                 <Input id='customer_name' value={form.customer_name} onChange={set('customer_name')} />
               </Field>
-              <Field id='lead_id' label='Lead ID' error={fieldError('lead_id')}>
+              <Field id='lead_id' label='Lead ID' required error={fieldError('lead_id')}>
                 <Input id='lead_id' value={form.lead_id} onChange={set('lead_id')} />
               </Field>
               <Field

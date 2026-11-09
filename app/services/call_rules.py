@@ -131,7 +131,7 @@ def validate_intake_payload(payload: Any) -> dict:
 
     agent_id = _clean_text(payload.get("agent_id"), "agent_id", errors, required=True)
     agent_name = _clean_text(payload.get("agent_name"), "agent_name", errors, required=True)
-    lead_id = _clean_text(payload.get("lead_id"), "lead_id", errors, required=False)
+    lead_id = _clean_text(payload.get("lead_id"), "lead_id", errors, required=True)
     customer_name = _clean_text(
         payload.get("customer_name"), "customer_name", errors, required=False
     )
