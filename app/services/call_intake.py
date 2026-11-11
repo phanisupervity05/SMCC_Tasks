@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from ..models.call import Call, CallAudit, CallStatus, LeadScore, RejectedRequest, utcnow
 from . import auto_gateway
 from .auto_gateway import AutoHandoffError, HandOff
+from .policy_engine import add_flags, count_hits, run_intake_policies
 from .call_rules import RuleError, generate_task_id, safe_payload_copy, validate_intake_payload
 
 log = logging.getLogger(__name__)
@@ -87,6 +88,16 @@ def intake_call(
     if existing is not None:
         return existing, False
 
+    # Command Center policies. A "reject" stops the request here; a "flag" lets the call through marked for review.
+    hits = run_intake_policies(db, data)
+    rejects = [h for h in hits if h["action"] == "reject"]
+    if rejects:
+        count_hits(db, rejects)
+        record_rejection(
+            db, endpoint, "Blocked by policy: " + "; ".join(h["policy_name"] for h in rejects), payload
+        )
+        raise IntakeRejected([{"field": "policy", "message": h["message"]} for h in rejects])
+
     call = Call(task_id=task_id, status=CallStatus.RECEIVED, **data)
     db.add(call)
     try:
@@ -96,6 +107,9 @@ def intake_call(
         db.rollback()
         return db.query(Call).filter(Call.task_id == task_id).one(), False
     db.refresh(call)
+    flags = [h for h in hits if h["action"] == "flag"]
+    if flags:
+        add_flags(db, task_id, flags)
 
     handoff = HandOff(
         task_id=task_id,

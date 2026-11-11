@@ -49,6 +49,7 @@ def call_summary(call: Call) -> dict:
             "lead_score": call.lead_score is not None,
             "call_audit": call.call_audit is not None,
         },
+        "flags": [{"policy_id": f.policy_id, "policy": f.policy_name, "message": f.message} for f in (call.flags or [])],
         "lead_band": call.lead_score.band if call.lead_score else None,
         "audit_score_percent": call.call_audit.score_percent if call.call_audit else None,
         "sent_to_auto_at": _iso(call.sent_to_auto_at),

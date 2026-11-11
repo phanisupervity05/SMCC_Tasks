@@ -13,6 +13,7 @@ from .auth import router as auth_router
 from .examples import router as examples_router
 from .health import router as health_router
 from .items import router as items_router
+from .policies import router as policies_router
 from .webhooks import router as webhooks_router
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "items_router",
     "examples_router",
     "calls_router",
+    "policies_router",
     "webhooks_router",
 ]
 

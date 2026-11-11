@@ -16,6 +16,7 @@ export interface CallSummary {
   is_stuck: boolean
   stuck_after_minutes: number
   results_received: { lead_score: boolean; call_audit: boolean }
+  flags: { policy_id: number; policy: string; message: string }[]
   lead_band: number | null
   audit_score_percent: number | null
   sent_to_auto_at: string | null
@@ -71,6 +72,7 @@ export interface CallFilters {
   status?: string
   date_from?: string
   date_to?: string
+  flagged?: boolean
   limit?: number
   offset?: number
 }
@@ -83,6 +85,7 @@ export interface CallsStats {
   rejected: number
   stuck: number
   missing_lead_id: number
+  flagged: number
   success_rate: number | null
   avg_audit_percent: number | null
   avg_band: number | null
@@ -123,6 +126,7 @@ function filterQuery(f: CallFilters) {
   if (f.status) q.set('status', f.status)
   if (f.date_from) q.set('date_from', f.date_from)
   if (f.date_to) q.set('date_to', f.date_to)
+  if (f.flagged) q.set('flagged', 'true')
   return q
 }
 

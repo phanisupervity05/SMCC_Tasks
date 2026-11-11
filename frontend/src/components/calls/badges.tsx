@@ -37,6 +37,20 @@ export function StuckBadge({ minutes }: { minutes: number }) {
   )
 }
 
+/** A call a policy marked for review. The reasons are in the tooltip. */
+export function FlagBadge({ flags }: { flags: CallSummary['flags'] }) {
+  if (!flags?.length) return null
+  return (
+    <span
+      className='inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-300'
+      title={flags.map((f) => f.message).join(' | ')}
+    >
+      <Icons.flag className='h-3 w-3' />
+      {flags.length === 1 ? 'Needs review' : `Needs review (${flags.length})`}
+    </span>
+  )
+}
+
 /** Which results have arrived. Shown while a call is in progress. */
 export function ResultChips({ call }: { call: CallSummary }) {
   const chip = (label: string, arrived: boolean) => (

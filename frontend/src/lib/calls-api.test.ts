@@ -25,6 +25,14 @@ describe('callsApi query strings', () => {
     })
   })
 
+  it('asks only for flagged calls when the review filter is on', async () => {
+    await callsApi.list({ flagged: true })
+    expect(get.mock.calls[0][0]).toBe('/api/calls?flagged=true')
+    get.mockClear()
+    await callsApi.list({ flagged: false })
+    expect(get.mock.calls[0][0]).toBe('/api/calls?')
+  })
+
   it('leaves out filters that are not set', async () => {
     await callsApi.list({})
     expect(get.mock.calls[0][0]).toBe('/api/calls?')

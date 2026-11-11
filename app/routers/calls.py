@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from ..core.database import get_db
 from ..core.storage import get_storage_instance
-from ..models.call import Call, CallStatus, LeadScore, RejectedRequest, utcnow
+from ..models.call import Call, CallFlag, CallStatus, LeadScore, RejectedRequest, utcnow
 from ..services import auto_gateway  # AUTO STUB: for test-mode config only
 from ..services.call_intake import (
     INTAKE_DROP_ENDPOINT,
@@ -201,6 +201,7 @@ def _filtered_calls(
     status: str | None,
     date_from: date | None,
     date_to: date | None,
+    flagged: bool | None = None,
 ):
     """The one place the list and the CSV export decide which calls match."""
     if status is not None and status not in CallStatus.ALL:
@@ -214,6 +215,8 @@ def _filtered_calls(
         q = q.filter(Call.agent_id == agent_id)
     if status:
         q = q.filter(Call.status == status)
+    if flagged:
+        q = q.filter(Call.task_id.in_(db.query(CallFlag.task_id)))
     return apply_date_range(q, date_from, date_to)
 
 
@@ -224,11 +227,12 @@ def list_calls(
     status: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    flagged: bool | None = None,
     limit: int = 100,
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
-    q = _filtered_calls(db, band, agent_id, status, date_from, date_to)
+    q = _filtered_calls(db, band, agent_id, status, date_from, date_to, flagged)
     total = q.count()
     rows = (
         q.order_by(Call.created_at.desc(), Call.id.desc())
@@ -241,7 +245,7 @@ def list_calls(
 
 EXPORT_COLUMNS = [
     "task_id", "lead_id", "agent_id", "agent_name", "customer_name", "call_date", "status",
-    "failure_reason", "lead_band", "audit_score_percent", "created_at",
+    "failure_reason", "lead_band", "audit_score_percent", "flags", "created_at",
 ]
 MAX_EXPORT_ROWS = 10000
 
@@ -259,11 +263,12 @@ def export_calls_csv(
     status: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    flagged: bool | None = None,
     db: Session = Depends(get_db),
 ):
     """Download the calls that match the same filters as the list (newest first, at most 10,000)."""
     rows = (
-        _filtered_calls(db, band, agent_id, status, date_from, date_to)
+        _filtered_calls(db, band, agent_id, status, date_from, date_to, flagged)
         .order_by(Call.created_at.desc(), Call.id.desc())
         .limit(MAX_EXPORT_ROWS)
         .all()
@@ -273,6 +278,7 @@ def export_calls_csv(
     writer.writerow(EXPORT_COLUMNS)
     for c in rows:
         s = call_summary(c)
+        s["flags"] = "; ".join(f["policy"] for f in s["flags"])
         writer.writerow([_csv_safe(s[col]) for col in EXPORT_COLUMNS])
     stamp = utcnow().strftime("%Y%m%d-%H%M")
     return Response(

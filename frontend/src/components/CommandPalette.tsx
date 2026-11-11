@@ -45,7 +45,7 @@ const navigationItems = [
   },
   {
     id: 'ai-policies',
-    label: 'Go to Auto Policies',
+    label: 'Go to Policies',
     icon: Icons.brain,
     href: '/ai/policies',
   },

@@ -29,6 +29,7 @@ import { CallsDashboard } from '@/components/calls/Dashboard'
 import {
   BandPill,
   ResultChips,
+  FlagBadge,
   StatusBadge,
   StuckBadge,
   formatDate,
@@ -74,6 +75,7 @@ export default function CallsPage() {
   const [band, setBand] = useState(ALL)
   const [agent, setAgent] = useState(ALL)
   const [status, setStatus] = useState(ALL)
+  const [review, setReview] = useState(ALL)
   const [agents, setAgents] = useState<{ agent_id: string; agent_name: string }[]>([])
   const [calls, setCalls] = useState<CallSummary[] | null>(null)
   const [total, setTotal] = useState(0)
@@ -108,6 +110,7 @@ export default function CallsPage() {
       band: band === ALL ? undefined : band,
       agent_id: agent === ALL ? undefined : agent,
       status: status === ALL ? undefined : status,
+      flagged: review === 'flagged' ? true : undefined,
       date_from: dateFrom || undefined,
       date_to: dateTo || undefined,
       limit: PAGE_SIZE,
@@ -115,12 +118,12 @@ export default function CallsPage() {
     }
     setCalls(null)
     load()
-  }, [band, agent, status, dateFrom, dateTo, page, load])
+  }, [band, agent, status, review, dateFrom, dateTo, page, load])
 
   // A new filter starts again from the first page.
   useEffect(() => {
     setPage(0)
-  }, [band, agent, status, dateFrom, dateTo])
+  }, [band, agent, status, review, dateFrom, dateTo])
 
   useEffect(() => {
     callsApi.agents().then(setAgents).catch(() => setAgents([]))
@@ -244,6 +247,12 @@ export default function CallsPage() {
             </Button>
           )}
           <FilterSelect
+            label='Review'
+            value={review}
+            onChange={setReview}
+            options={[{ value: 'flagged', label: 'Flagged for review' }]}
+          />
+          <FilterSelect
             label='Status'
             value={status}
             onChange={setStatus}
@@ -333,6 +342,7 @@ export default function CallsPage() {
                       <div className='flex flex-wrap items-center gap-1.5'>
                         <StatusBadge status={c.status} />
                         {c.is_stuck && <StuckBadge minutes={c.stuck_after_minutes} />}
+                        <FlagBadge flags={c.flags} />
                       </div>
                       {inProgress(c.status) && <ResultChips call={c} />}
                       {c.status === 'failed' && c.failure_reason && (
