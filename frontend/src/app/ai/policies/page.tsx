@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Icons } from '@/components/ui/icons'
-import { callsApi, type AutoPolicy } from '@/lib/calls-api'
+import { callsApi, type AutoPolicy, type AutoPolicySnapshot } from '@/lib/calls-api'
 import { formatDate } from '@/components/calls/badges'
 
 function Chip({ children }: { children: React.ReactNode }) {
@@ -100,12 +100,16 @@ function PolicyPanel({ policy }: { policy: AutoPolicy }) {
 
 export default function AutoPoliciesPage() {
   const [policies, setPolicies] = useState<AutoPolicy[] | null>(null)
+  const [snapshot, setSnapshot] = useState<AutoPolicySnapshot | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     callsApi
       .autoPolicies()
-      .then((r) => setPolicies(r.items))
+      .then((r) => {
+        setPolicies(r.items)
+        setSnapshot(r.snapshot)
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Could not load the policies.'))
   }, [])
 
@@ -117,6 +121,29 @@ export default function AutoPoliciesPage() {
           The two Supervity Auto policies the call agent uses to score every sales call.
         </p>
       </div>
+
+      {snapshot && (
+        <div
+          role={snapshot.stale ? 'alert' : 'status'}
+          className={
+            snapshot.stale
+              ? 'rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900'
+              : 'rounded-xl border border-black/[0.06] bg-slate-50 p-3 text-sm text-brand-muted'
+          }
+        >
+          {snapshot.stale ? (
+            <>
+              This copy of the policies is {snapshot.age_days} days old (synced {snapshot.synced_at}). Check each policy in
+              Supervity Auto before relying on it.
+            </>
+          ) : (
+            <>
+              A copy of the policies in {snapshot.source}, last synced {snapshot.synced_at}. Open a policy in Auto for the
+              live version.
+            </>
+          )}
+        </div>
+      )}
 
       {error && (
         <div role='alert' className='rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700'>

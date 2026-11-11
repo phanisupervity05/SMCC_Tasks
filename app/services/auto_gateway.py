@@ -53,6 +53,8 @@ def hand_off(handoff: HandOff, stub_scenario: str | None = None) -> None:
 
     # --- AUTO STUB START (delete this block, app/auto_stub/, and the two helpers below) ---
     if os.getenv("AUTO_MODE", "").lower() == "stub":
+        if os.getenv("APP_ENV", "development").lower() == "production":
+            raise AutoHandoffError("AUTO_MODE=stub is not allowed in production.")
         from ..auto_stub import deliver_handoff
 
         deliver_handoff(handoff, stub_scenario)

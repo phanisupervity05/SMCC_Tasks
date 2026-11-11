@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
 import { Icons } from '@/components/ui/icons'
 import { cn } from '@/lib/utils'
 import {
@@ -35,6 +36,7 @@ import {
 
 const ALL = 'all'
 const POLL_MS = 5000
+const PAGE_SIZE = 25
 
 function FilterSelect({
   label,
@@ -75,6 +77,10 @@ export default function CallsPage() {
   const [agents, setAgents] = useState<{ agent_id: string; agent_name: string }[]>([])
   const [calls, setCalls] = useState<CallSummary[] | null>(null)
   const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(0)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [exporting, setExporting] = useState(false)
   const [stats, setStats] = useState<CallsStats | null>(null)
   const [error, setError] = useState<string | null>(null)
   const filtersRef = useRef<CallFilters>({})
@@ -83,7 +89,9 @@ export default function CallsPage() {
     try {
       const [res, st] = await Promise.all([
         callsApi.list(filtersRef.current),
-        callsApi.stats().catch(() => null),
+        callsApi
+          .stats({ date_from: filtersRef.current.date_from, date_to: filtersRef.current.date_to })
+          .catch(() => null),
       ])
       setCalls(res.items)
       setTotal(res.total)
@@ -100,20 +108,55 @@ export default function CallsPage() {
       band: band === ALL ? undefined : band,
       agent_id: agent === ALL ? undefined : agent,
       status: status === ALL ? undefined : status,
+      date_from: dateFrom || undefined,
+      date_to: dateTo || undefined,
+      limit: PAGE_SIZE,
+      offset: page * PAGE_SIZE,
     }
     setCalls(null)
     load()
-  }, [band, agent, status, load])
+  }, [band, agent, status, dateFrom, dateTo, page, load])
+
+  // A new filter starts again from the first page.
+  useEffect(() => {
+    setPage(0)
+  }, [band, agent, status, dateFrom, dateTo])
 
   useEffect(() => {
     callsApi.agents().then(setAgents).catch(() => setAgents([]))
   }, [])
 
-  // Keep results arriving live.
+  // Keep results arriving live, but not while the tab is hidden.
   useEffect(() => {
-    const t = setInterval(load, POLL_MS)
-    return () => clearInterval(t)
+    const tick = () => {
+      if (!document.hidden) load()
+    }
+    const t = setInterval(tick, POLL_MS)
+    document.addEventListener('visibilitychange', tick)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', tick)
+    }
   }, [load])
+
+  const rangeInvalid = !!dateFrom && !!dateTo && dateFrom > dateTo
+
+  const exportCsv = async () => {
+    setExporting(true)
+    try {
+      const { blob, filename } = await callsApi.exportCsv({ ...filtersRef.current, limit: undefined, offset: undefined })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not export the calls.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const stuck = (calls ?? []).filter((c) => c.is_stuck)
 
@@ -130,6 +173,10 @@ export default function CallsPage() {
           <Button variant='outline' onClick={load}>
             <Icons.refresh className='mr-2 h-4 w-4' />
             Refresh
+          </Button>
+          <Button variant='outline' onClick={exportCsv} disabled={exporting || rangeInvalid}>
+            <Icons.download className='mr-2 h-4 w-4' />
+            {exporting ? 'Exporting...' : 'Export CSV'}
           </Button>
           <Button asChild>
             <Link href='/calls/new'>
@@ -176,6 +223,26 @@ export default function CallsPage() {
             onChange={setAgent}
             options={agents.map((a) => ({ value: a.agent_id, label: `${a.agent_name} (${a.agent_id})` }))}
           />
+          <div className='space-y-1'>
+            <p className='text-xs font-medium text-brand-muted'>From</p>
+            <Input type='date' aria-label='From date' value={dateFrom} max={dateTo || undefined} onChange={(e) => setDateFrom(e.target.value)} />
+          </div>
+          <div className='space-y-1'>
+            <p className='text-xs font-medium text-brand-muted'>To</p>
+            <Input type='date' aria-label='To date' value={dateTo} min={dateFrom || undefined} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+          {(dateFrom || dateTo) && (
+            <Button
+              variant='ghost'
+              className='self-end'
+              onClick={() => {
+                setDateFrom('')
+                setDateTo('')
+              }}
+            >
+              Clear dates
+            </Button>
+          )}
           <FilterSelect
             label='Status'
             value={status}
@@ -282,9 +349,24 @@ export default function CallsPage() {
           </table>
         </div>
         {calls && calls.length > 0 && (
-          <p className='border-t border-black/[0.04] px-4 py-3 text-xs text-brand-muted'>
-            Showing {calls.length} of {total}
-          </p>
+          <div className='flex items-center justify-between border-t border-black/[0.04] px-4 py-3 text-xs text-brand-muted'>
+            <span>
+              Showing {page * PAGE_SIZE + 1}-{page * PAGE_SIZE + calls.length} of {total}
+            </span>
+            <div className='flex gap-2'>
+              <Button variant='outline' size='sm' disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                Previous
+              </Button>
+              <Button
+                variant='outline'
+                size='sm'
+                disabled={(page + 1) * PAGE_SIZE >= total}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
       </Card>
     </div>

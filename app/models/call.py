@@ -18,6 +18,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -42,6 +43,10 @@ class CallStatus:
 
 class Call(Base):
     __tablename__ = "calls"
+    __table_args__ = (
+        Index("ix_calls_created_at", "created_at"),
+        Index("ix_calls_status_sent_to_auto_at", "status", "sent_to_auto_at"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(String(64), unique=True, nullable=False, index=True)
@@ -74,6 +79,7 @@ class Call(Base):
 
 class LeadScore(Base):
     __tablename__ = "lead_scores"
+    __table_args__ = (Index("ix_lead_scores_band", "band"),)
 
     id = Column(Integer, primary_key=True)
     task_id = Column(

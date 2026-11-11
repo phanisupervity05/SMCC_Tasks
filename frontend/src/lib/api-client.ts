@@ -81,6 +81,24 @@ async function apiClientFetch<T = unknown>(endpoint: string, options: RequestIni
   return response.json() as Promise<T>
 }
 
+/** Download a file from the API (for example a CSV) with the user's login. Returns the bytes and the file name. */
+export async function apiClientDownload(endpoint: string): Promise<{ blob: Blob; filename: string }> {
+  const session = await getSession()
+  const headers = new Headers()
+  if (session?.accessToken) headers.set('Authorization', `Bearer ${session.accessToken}`)
+  const response = await fetch(`${API_URL}${BASE_PATH}${endpoint}`, { headers })
+  if (response.status === 401) {
+    await signIn()
+    throw new Error('Your session has expired. Please sign in again.')
+  }
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: response.statusText }))
+    throw new Error(typeof err.detail === 'string' ? err.detail : 'Download failed.')
+  }
+  const match = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')
+  return { blob: await response.blob(), filename: match?.[1] ?? 'download.csv' }
+}
+
 /**
  * API client with convenience methods for common HTTP operations.
  */

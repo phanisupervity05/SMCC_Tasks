@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Icons } from '@/components/ui/icons'
 import { callsApi, inProgress, type CallDetail } from '@/lib/calls-api'
 import { RetryButton } from '@/components/calls/RetryButton'
+import { LeadIdForm } from '@/components/calls/LeadIdForm'
 import {
   BandPill,
   ResultChips,
@@ -134,7 +135,9 @@ export default function CallDetailPage() {
               {call.agent_name} <span className='text-brand-muted'>({call.agent_id})</span>
             </Meta>
             <Meta label='Customer'>{call.customer_name}</Meta>
-            <Meta label='Lead ID'>{call.lead_id}</Meta>
+            <Meta label='Lead ID'>
+              {call.lead_id ?? <LeadIdForm taskId={call.task_id} onDone={load} />}
+            </Meta>
             <Meta label='Call date'>{formatDate(call.call_date)}</Meta>
             <Meta label='Received'>{formatDate(call.created_at, true)}</Meta>
             <Meta label='Sent to Auto'>{formatDate(call.sent_to_auto_at, true)}</Meta>

@@ -57,6 +57,7 @@ def _now() -> datetime:
 
 def fail_call(db: Session, call_id: int, reason: str) -> None:
     """Mark a call failed (never overrides a finished call)."""
+    log.error("call_failed id=%s reason=%s", call_id, reason[:200], extra={"fields": {"call_row_id": call_id}})
     db.query(Call).filter(Call.id == call_id, Call.status != CallStatus.DONE).update(
         {"status": CallStatus.FAILED, "failure_reason": reason[:2000], "updated_at": _now()}
     )

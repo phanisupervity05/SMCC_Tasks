@@ -112,6 +112,11 @@ export function CallsDashboard({ stats }: { stats: CallsStats | null }) {
 
   return (
     <div className='space-y-4'>
+      {stats.missing_lead_id > 0 && (
+        <div role='status' className='rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900'>
+          {stats.missing_lead_id} {stats.missing_lead_id === 1 ? 'call has' : 'calls have'} no Lead ID (saved before it became required). Open the call to add it.
+        </div>
+      )}
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
         <Kpi label='Total calls' value={stats.total} hint={`${stats.in_progress} in progress`} />
         <Kpi

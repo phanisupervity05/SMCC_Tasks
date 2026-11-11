@@ -1,6 +1,6 @@
 // frontend/src/lib/calls-api.ts
 // Types and calls for the Calls API. Display and send only: every rule lives in the backend.
-import apiClientFetch, { apiClient } from '@/lib/api-client'
+import apiClientFetch, { apiClient, apiClientDownload } from '@/lib/api-client'
 
 export type CallStatus = 'received' | 'sent_to_auto' | 'done' | 'failed'
 
@@ -69,6 +69,10 @@ export interface CallFilters {
   band?: string
   agent_id?: string
   status?: string
+  date_from?: string
+  date_to?: string
+  limit?: number
+  offset?: number
 }
 
 export interface CallsStats {
@@ -78,6 +82,7 @@ export interface CallsStats {
   failed: number
   rejected: number
   stuck: number
+  missing_lead_id: number
   success_rate: number | null
   avg_audit_percent: number | null
   avg_band: number | null
@@ -111,17 +116,40 @@ export interface AutoPolicy {
   rules: string[]
 }
 
+function filterQuery(f: CallFilters) {
+  const q = new URLSearchParams()
+  if (f.band) q.set('band', f.band)
+  if (f.agent_id) q.set('agent_id', f.agent_id)
+  if (f.status) q.set('status', f.status)
+  if (f.date_from) q.set('date_from', f.date_from)
+  if (f.date_to) q.set('date_to', f.date_to)
+  return q
+}
+
+export interface AutoPolicySnapshot {
+  synced_at: string
+  source: string
+  age_days: number
+  stale: boolean
+  stale_after_days: number
+}
+
 export const callsApi = {
-  autoPolicies: () => apiClient.get<{ items: AutoPolicy[] }>('/api/calls/auto-policies'),
-  stats: () => apiClient.get<CallsStats>('/api/calls/stats'),
+  autoPolicies: () => apiClient.get<{ items: AutoPolicy[]; snapshot: AutoPolicySnapshot }>('/api/calls/auto-policies'),
+  stats: (range: { date_from?: string; date_to?: string } = {}) => {
+    const q = new URLSearchParams()
+    if (range.date_from) q.set('date_from', range.date_from)
+    if (range.date_to) q.set('date_to', range.date_to)
+    return apiClient.get<CallsStats>(`/api/calls/stats?${q.toString()}`)
+  },
+  exportCsv: (f: CallFilters) => apiClientDownload(`/api/calls/export.csv?${filterQuery(f).toString()}`),
   config: () => apiClient.get<CallsConfig>('/api/calls/config'),
   agents: () =>
     apiClient.get<{ agent_id: string; agent_name: string }[]>('/api/calls/agents'),
   list: (f: CallFilters) => {
-    const q = new URLSearchParams()
-    if (f.band) q.set('band', f.band)
-    if (f.agent_id) q.set('agent_id', f.agent_id)
-    if (f.status) q.set('status', f.status)
+    const q = filterQuery(f)
+    if (f.limit !== undefined) q.set('limit', String(f.limit))
+    if (f.offset !== undefined) q.set('offset', String(f.offset))
     return apiClient.get<{ total: number; items: CallSummary[] }>(
       `/api/calls?${q.toString()}`
     )
@@ -137,6 +165,8 @@ export const callsApi = {
       { method: 'POST', body: form }
     )
   },
+  setLeadId: (taskId: string, leadId: string) =>
+    apiClient.patch<CallDetail>(`/api/calls/${encodeURIComponent(taskId)}/lead-id`, { lead_id: leadId }),
   retry: (taskId: string) =>
     apiClient.post<CallDetail>(`/api/calls/${encodeURIComponent(taskId)}/retry`, {}),
   drop: (body: Record<string, string>) =>

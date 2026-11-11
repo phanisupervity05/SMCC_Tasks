@@ -37,6 +37,8 @@ from fastapi.responses import Response, StreamingResponse
 from .authz import AuthzEngine
 from .core.storage import GCSStorage, LocalStorage, StorageBackend
 from .middleware import AuditMiddleware
+from .core.observability import RequestContextMiddleware, configure_logging
+from .services.alerts import monitor_loop
 from .routers import (
     admin_router,
     ai_router,
@@ -50,6 +52,7 @@ from .routers import (
 )
 from .security import get_current_user, verify_access
 
+configure_logging()
 log = logging.getLogger(__name__)
 
 # =============================================================================
@@ -104,6 +107,17 @@ app.add_middleware(
 # Disable by setting AUDIT_MIDDLEWARE_ENABLED=false in environment.
 # See app/middleware/audit.py for configuration options.
 app.add_middleware(AuditMiddleware)
+
+# Request id + one structured access-log line per request (added last, so it wraps everything).
+app.add_middleware(RequestContextMiddleware)
+
+
+@app.on_event("startup")
+async def _start_alert_monitor():
+    """Raise an alert when calls are stuck or failing (see app/services/alerts.py)."""
+    import asyncio
+
+    asyncio.create_task(monitor_loop())
 
 # =============================================================================
 # API ROUTER WITH AUTHORIZATION

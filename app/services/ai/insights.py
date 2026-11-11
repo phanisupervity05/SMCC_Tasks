@@ -15,7 +15,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
-from app.models.call import Call, CallStatus, RejectedRequest
+from app.models.call import Call, CallAudit, CallStatus, RejectedRequest
 from app.schemas.ai import (
     InsightsListResponse, InsightResponse, InsightType, InsightSeverity,
     PatternInfo, ActionRecommendation,
@@ -170,12 +170,12 @@ class InsightsService(GeminiService):
                 description=", ".join(f"Band {b}: {c}" for b, c in sorted(bands.items()) if c) or "No scored calls"))
 
         # 5. Audit quality
-        audits = [c for c in db.query(Call).all() if c.call_audit is not None]
+        audits = db.query(CallAudit).order_by(CallAudit.created_at.desc()).limit(1000).all()
         if audits:
             avg = stats["avg_audit_percent"]
             checks: dict[str, list[float]] = {}
-            for c in audits:
-                for ch in c.call_audit.checks or []:
+            for a in audits:
+                for ch in a.checks or []:
                     try:
                         checks.setdefault(str(ch["name"]), []).append(float(ch["score"]))
                     except (KeyError, TypeError, ValueError):

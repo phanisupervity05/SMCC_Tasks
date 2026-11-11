@@ -63,6 +63,15 @@ def _clean_text(value: Any, field: str, errors: list, *, required: bool) -> str 
     return text
 
 
+def validate_lead_id(value: Any) -> str:
+    """A Lead ID typed in later for a call that was saved without one. Raises RuleError."""
+    errors: list[dict] = []
+    lead_id = _clean_text(value, "lead_id", errors, required=True)
+    if errors:
+        raise RuleError(errors)
+    return lead_id
+
+
 def parse_call_date(value: Any) -> datetime | None:
     """Accepts YYYY-MM-DD or an ISO 8601 datetime. Returns UTC. Raises ValueError."""
     if value is None or (isinstance(value, str) and not value.strip()):

@@ -2,10 +2,21 @@
 """
 The two Supervity Auto policies the call agent uses, shown read-only on the Auto Policies page.
 
-This is a snapshot taken from Supervity Auto (Production, workspace Auto_cc_Training). The
-live policies are authored and published in Auto; to refresh this page after a change there,
-update the values below. Nothing here is executed by the Command Centre.
+This is a copy of the policies in Supervity Auto (Production, workspace Auto_cc_Training). The
+live policies are authored and published in Auto. The page shows when this copy was last
+synced and warns when it is older than STALE_AFTER_DAYS.
+
+To refresh after a change in Auto: update the values below and SYNCED_AT, then rebuild.
+Compare each policy's "updated_at" with the "Updated" time shown in Auto to know if it changed.
+Nothing here is executed by the Command Centre.
 """
+
+from datetime import date
+
+# Date this copy was last checked against Supervity Auto (both policies unchanged since their updated_at).
+SYNCED_AT = "2026-11-11"
+STALE_AFTER_DAYS = 14
+SOURCE = "Supervity Auto, Production, workspace Auto_cc_Training"
 
 _NO_AGENT = "Read only the lines starting with [Customer]. Ignore [Agent] and [Unknown] lines. Judge what was said, never tone. "
 
@@ -155,3 +166,15 @@ CALL_AUDIT = {
 }
 
 AUTO_POLICIES = [LEAD_SCORE, CALL_AUDIT]
+
+
+def snapshot_info(today: date | None = None) -> dict:
+    """When the copy was synced, how old it is, and whether it is old enough to warn about."""
+    age = ((today or date.today()) - date.fromisoformat(SYNCED_AT)).days
+    return {
+        "synced_at": SYNCED_AT,
+        "source": SOURCE,
+        "age_days": max(0, age),
+        "stale": age > STALE_AFTER_DAYS,
+        "stale_after_days": STALE_AFTER_DAYS,
+    }
