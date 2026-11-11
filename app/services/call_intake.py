@@ -21,7 +21,7 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..models.call import Call, CallStatus, RejectedRequest, utcnow
+from ..models.call import Call, CallAudit, CallStatus, LeadScore, RejectedRequest, utcnow
 from . import auto_gateway
 from .auto_gateway import AutoHandoffError, HandOff
 from .call_rules import RuleError, generate_task_id, safe_payload_copy, validate_intake_payload
@@ -122,3 +122,63 @@ def intake_call(
 
     db.expire_all()
     return db.query(Call).filter(Call.id == call.id).one(), True
+
+
+class RetryNotAllowed(Exception):
+    """Only a failed call can be run again."""
+
+
+def retry_call(db: Session, call: Call, stub_scenario: str | None = None) -> Call:
+    """
+    Run a failed call again with the same task_id. Anything left over from the failed run
+    (partial results, transcript, output) is cleared so the new run starts clean.
+    Raises RetryNotAllowed unless the call is "failed".
+    """
+    # Conditional claim: two quick clicks cannot start two runs.
+    claimed = (
+        db.query(Call)
+        .filter(Call.id == call.id, Call.status == CallStatus.FAILED)
+        .update(
+            {
+                "status": CallStatus.RECEIVED,
+                "failure_reason": None,
+                "sent_to_auto_at": None,
+                "transcript": None,
+                "auto_output": None,
+                "updated_at": _now(),
+            }
+        )
+    )
+    if not claimed:
+        db.rollback()
+        raise RetryNotAllowed("Only a failed call can be run again.")
+    db.query(LeadScore).filter(LeadScore.task_id == call.task_id).delete()
+    db.query(CallAudit).filter(CallAudit.task_id == call.task_id).delete()
+    db.commit()
+    db.expire_all()
+    call = db.query(Call).filter(Call.id == call.id).one()
+
+    handoff = HandOff(
+        task_id=call.task_id,
+        recording_url=call.recording_url,
+        agent_id=call.agent_id,
+        agent_name=call.agent_name,
+        lead_id=call.lead_id,
+        customer_name=call.customer_name,
+        call_date=call.call_date,
+    )
+    try:
+        auto_gateway.hand_off(handoff, stub_scenario)
+    except AutoHandoffError as e:
+        fail_call(db, call.id, f"Hand-off to Auto failed: {e}")
+    except Exception as e:
+        log.exception("Unexpected hand-off error on retry for %s", call.task_id)
+        fail_call(db, call.id, f"Hand-off to Auto failed: {type(e).__name__}")
+    else:
+        now = _now()
+        db.query(Call).filter(Call.id == call.id, Call.status == CallStatus.RECEIVED).update(
+            {"status": CallStatus.SENT_TO_AUTO, "sent_to_auto_at": now, "updated_at": now}
+        )
+        db.commit()
+    db.expire_all()
+    return db.query(Call).filter(Call.id == call.id).one()

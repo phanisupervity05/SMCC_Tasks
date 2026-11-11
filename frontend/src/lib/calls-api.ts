@@ -71,7 +71,49 @@ export interface CallFilters {
   status?: string
 }
 
+export interface CallsStats {
+  total: number
+  processed: number
+  in_progress: number
+  failed: number
+  rejected: number
+  stuck: number
+  success_rate: number | null
+  avg_audit_percent: number | null
+  avg_band: number | null
+  by_status: Record<CallStatus, number>
+  bands: { band: number; count: number }[]
+  per_day: { date: string; count: number }[]
+  agents: {
+    agent_id: string
+    agent_name: string
+    calls: number
+    done: number
+    avg_band: number | null
+    avg_audit_percent: number | null
+  }[]
+}
+
+export interface AutoPolicy {
+  policy_id: string
+  name: string
+  agent: string
+  description: string
+  workspace: string
+  version: number
+  published: boolean
+  updated_at: string
+  url: string
+  inputs: string[]
+  outputs: { field: string; values: string[] }[]
+  judgments: { name: string; answers: string[]; rubric: string }[]
+  rules_title: string
+  rules: string[]
+}
+
 export const callsApi = {
+  autoPolicies: () => apiClient.get<{ items: AutoPolicy[] }>('/api/calls/auto-policies'),
+  stats: () => apiClient.get<CallsStats>('/api/calls/stats'),
   config: () => apiClient.get<CallsConfig>('/api/calls/config'),
   agents: () =>
     apiClient.get<{ agent_id: string; agent_name: string }[]>('/api/calls/agents'),
@@ -95,6 +137,8 @@ export const callsApi = {
       { method: 'POST', body: form }
     )
   },
+  retry: (taskId: string) =>
+    apiClient.post<CallDetail>(`/api/calls/${encodeURIComponent(taskId)}/retry`, {}),
   drop: (body: Record<string, string>) =>
     apiClient.post<{ created: boolean; call: CallDetail }>('/api/calls', body),
   rejected: () =>

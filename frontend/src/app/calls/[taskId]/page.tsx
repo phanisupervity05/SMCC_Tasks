@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/skeleton'
 import { Icons } from '@/components/ui/icons'
 import { callsApi, inProgress, type CallDetail } from '@/lib/calls-api'
+import { RetryButton } from '@/components/calls/RetryButton'
 import {
   BandPill,
   ResultChips,
@@ -116,6 +117,9 @@ export default function CallDetailPage() {
           <div>
             <p className='font-semibold'>This call failed</p>
             <p>{call.failure_reason ?? 'No reason was recorded.'}</p>
+            <div className='mt-3'>
+              <RetryButton taskId={call.task_id} onDone={load} size='default' />
+            </div>
           </div>
         </div>
       )}

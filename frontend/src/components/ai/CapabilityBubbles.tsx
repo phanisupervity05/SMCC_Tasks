@@ -12,10 +12,10 @@ interface Capability {
 
 const CAPABILITIES: Capability[] = [
   { icon: Icons.helpCircle, label: 'What can you help me with?', query: 'What can you help me with?' },
-  { icon: Icons.activity, label: 'Show recent activity', query: 'Show me recent activity' },
-  { icon: Icons.fileText, label: 'Generate a report', query: 'Generate a report' },
-  { icon: Icons.brain, label: 'Create a policy', query: 'Help me create a new policy' },
-  { icon: Icons.lightbulb, label: 'Show insights', query: 'Show me AI insights' },
+  { icon: Icons.activity, label: 'How are my calls doing?', query: 'How are my sales calls doing?' },
+  { icon: Icons.alertTriangle, label: 'Show failed calls', query: 'Show failed calls' },
+  { icon: Icons.lightbulb, label: 'High-intent leads', query: 'Show high-intent leads (band 4-5)' },
+  { icon: Icons.users, label: 'Agent audit scores', query: 'How are my sales agents scoring on call audits?' },
   { icon: Icons.info, label: 'Explain this page', query: 'Explain this page to me' },
 ]
 

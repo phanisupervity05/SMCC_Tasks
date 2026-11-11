@@ -21,7 +21,10 @@ import {
   inProgress,
   type CallFilters,
   type CallSummary,
+  type CallsStats,
 } from '@/lib/calls-api'
+import { RetryButton } from '@/components/calls/RetryButton'
+import { CallsDashboard } from '@/components/calls/Dashboard'
 import {
   BandPill,
   ResultChips,
@@ -72,14 +75,19 @@ export default function CallsPage() {
   const [agents, setAgents] = useState<{ agent_id: string; agent_name: string }[]>([])
   const [calls, setCalls] = useState<CallSummary[] | null>(null)
   const [total, setTotal] = useState(0)
+  const [stats, setStats] = useState<CallsStats | null>(null)
   const [error, setError] = useState<string | null>(null)
   const filtersRef = useRef<CallFilters>({})
 
   const load = useCallback(async () => {
     try {
-      const res = await callsApi.list(filtersRef.current)
+      const [res, st] = await Promise.all([
+        callsApi.list(filtersRef.current),
+        callsApi.stats().catch(() => null),
+      ])
       setCalls(res.items)
       setTotal(res.total)
+      if (st) setStats(st)
       setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load calls.')
@@ -113,9 +121,9 @@ export default function CallsPage() {
     <div className='space-y-6'>
       <div className='flex flex-wrap items-end justify-between gap-4'>
         <div>
-          <h1 className='text-display-3 font-bold tracking-tight text-brand-navy'>Calls</h1>
+          <h1 className='text-display-3 font-bold tracking-tight text-brand-navy'>Calls Dashboard</h1>
           <p className='mt-1 text-brand-muted'>
-            Lead score and call audit for every sales call.
+            Statistics and analytics for lead scores and call audits across every sales call.
           </p>
         </div>
         <div className='flex gap-2'>
@@ -149,6 +157,10 @@ export default function CallsPage() {
           </div>
         </div>
       )}
+
+      <CallsDashboard stats={stats} />
+
+      <h2 className='pt-2 text-lg font-semibold text-brand-navy'>All calls</h2>
 
       <Card>
         <CardContent className='flex flex-wrap gap-4 pt-6'>
@@ -261,6 +273,7 @@ export default function CallsPage() {
                           {c.failure_reason}
                         </p>
                       )}
+                      {c.status === 'failed' && <RetryButton taskId={c.task_id} onDone={load} />}
                     </div>
                   </td>
                 </tr>

@@ -11,6 +11,7 @@ import logging
 import mimetypes
 import os
 import re
+from datetime import timedelta, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
@@ -19,10 +20,18 @@ from sqlalchemy.orm import Session
 
 from ..core.database import get_db
 from ..core.storage import get_storage_instance
-from ..models.call import Call, CallStatus, LeadScore, RejectedRequest
+from ..models.call import Call, CallStatus, LeadScore, RejectedRequest, utcnow
 from ..services import auto_gateway  # AUTO STUB: for test-mode config only
-from ..services.call_intake import INTAKE_DROP_ENDPOINT, IntakeRejected, intake_call, record_rejection
-from ..services.call_views import call_detail, call_summary, rejected_view, stuck_after_minutes
+from ..services.call_intake import (
+    INTAKE_DROP_ENDPOINT,
+    IntakeRejected,
+    RetryNotAllowed,
+    intake_call,
+    record_rejection,
+    retry_call,
+)
+from ..services.call_stats import compute_stats
+from ..services.call_views import call_detail, call_summary, is_stuck, rejected_view, stuck_after_minutes
 
 log = logging.getLogger(__name__)
 
@@ -141,6 +150,20 @@ async def drop_call(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/calls/auto-policies")
+def auto_policies():
+    """The two Supervity Auto policies the call agent uses, shown read-only."""
+    from ..services.auto_policies import AUTO_POLICIES
+
+    return {"items": AUTO_POLICIES}
+
+
+@router.get("/calls/stats")
+def calls_stats(days: int = 14, db: Session = Depends(get_db)):
+    """Numbers for the dashboard. Computed in the service so the screen only displays them."""
+    return compute_stats(db, days)
+
+
 @router.get("/calls/agents")
 def list_agents(db: Session = Depends(get_db)):
     """Distinct sales agents, for the list filter."""
@@ -186,6 +209,19 @@ def get_call(task_id: str, db: Session = Depends(get_db)):
     call = db.query(Call).filter(Call.task_id == task_id).first()
     if call is None:
         raise HTTPException(status_code=404, detail="Call not found")
+    return call_detail(call)
+
+
+@router.post("/calls/{task_id}/retry")
+def retry_failed_call(task_id: str, db: Session = Depends(get_db)):
+    """Run a failed call again. Any other status is refused."""
+    call = db.query(Call).filter(Call.task_id == task_id).first()
+    if call is None:
+        raise HTTPException(status_code=404, detail="Call not found")
+    try:
+        call = retry_call(db, call)
+    except RetryNotAllowed as e:
+        raise HTTPException(status_code=409, detail=str(e))
     return call_detail(call)
 
 

@@ -61,7 +61,7 @@ const navItems: NavSection[] = [
   {
     title: 'Calls',
     items: [
-      { href: '/', label: 'Calls', icon: Icons.dashboard },
+      { href: '/', label: 'Calls Dashboard', icon: Icons.dashboard },
       { href: '/calls/new', label: 'Drop a call', icon: Icons.upload },
       { href: '/rejected', label: 'Rejected requests', icon: Icons.alertTriangle },
     ],
@@ -69,7 +69,7 @@ const navItems: NavSection[] = [
   {
     title: 'AI Intelligence',
     items: [
-      { href: '/ai/policies', label: 'AI Policies', icon: Icons.brain },
+      { href: '/ai/policies', label: 'Auto Policies', icon: Icons.brain },
       { href: '/ai/insights', label: 'AI Insights', icon: Icons.lightbulb },
     ],
   },

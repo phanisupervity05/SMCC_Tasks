@@ -319,7 +319,7 @@ export function AIManager() {
                       How can I help you?
                     </h3>
                     <p className="mt-2 max-w-sm text-muted-foreground">
-                      Ask me anything about your data, or use a quick action below.
+                      Ask me about your sales calls, lead bands, call audits or failed calls, or use a quick action below.
                     </p>
 
                     {/* Quick Actions - Capability Bubbles */}
@@ -348,7 +348,7 @@ export function AIManager() {
                 <ChatInput
                   onSend={handleSendMessage}
                   disabled={isTyping}
-                  placeholder={isTyping ? 'AI is thinking...' : 'Ask anything...'}
+                  placeholder={isTyping ? 'AI is thinking...' : 'Ask about your calls...'}
                 />
               </div>
             </motion.div>

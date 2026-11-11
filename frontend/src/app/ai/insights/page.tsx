@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -45,6 +46,7 @@ const itemVariants = {
 }
 
 export default function AIInsightsPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('summary')
   const [insights, setInsights] = useState<Insight[]>([])
   const [patterns, setPatterns] = useState<Pattern[]>([])
@@ -87,21 +89,20 @@ export default function AIInsightsPage() {
     }
   }
 
-  const handleInsightAction = (insight: Insight) => {
-    // Navigate to create policy or take action based on insight
-    // TODO: Implement action routing based on insight.action_type
-    void insight // Suppress unused variable warning
+  // Where each kind of recommendation is handled in the Command Center.
+  const goTo = (actionType?: string) => {
+    if (actionType === 'review_rejected') router.push('/rejected')
+    else if (actionType === 'drop_call') router.push('/calls/new')
+    else router.push('/')
   }
+
+  const handleInsightAction = (insight: Insight) => goTo(insight.action_type)
 
   const handleDismissInsight = (id: string) => {
     setInsights(prev => prev.filter(i => i.id !== id))
   }
 
-  const handleApplyAction = (action: ActionItem) => {
-    // Apply action - could create policy, trigger workflow, etc.
-    // TODO: Implement action execution based on action.action_type
-    void action // Suppress unused variable warning
-  }
+  const handleApplyAction = (action: ActionItem) => goTo(action.action_type)
 
   // Stats for summary
   const criticalCount = insights.filter(i => i.severity === 'critical').length
@@ -122,7 +123,7 @@ export default function AIInsightsPage() {
             AI Insights
           </h1>
           <p className="mt-2 text-lg text-muted-foreground">
-            AI-powered analysis of your data. Discover patterns, anomalies, and optimization opportunities.
+            Live analysis of your sales calls: failed and stuck calls, rejected requests, high-intent leads, audit quality and agent performance.
           </p>
         </div>
         <Button

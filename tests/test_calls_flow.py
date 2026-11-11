@@ -27,7 +27,7 @@ def idle_call(client, user_headers, monkeypatch):
     monkeypatch.setattr("app.services.call_intake.auto_gateway.hand_off", lambda *a, **k: None)
     r = client.post(
         "/api/calls",
-        json={"recording_url": "https://recordings.example.com/idle.mp3", "agent_id": "A-1", "agent_name": "Idle Agent"},
+        json={"recording_url": "https://recordings.example.com/idle.mp3", "agent_id": "A-1", "agent_name": "Idle Agent", "lead_id": "L-1"},
         headers=user_headers,
     )
     assert r.status_code == 201
@@ -62,7 +62,7 @@ def test_band_zero_is_valid_and_done(client, user_headers, drop):
 
 # ---- 3. Missing recording link ------------------------------------------------
 def test_missing_recording_link_is_rejected_and_logged_not_saved(client, user_headers, db):
-    r = client.post("/api/calls", json={"agent_id": "A-1", "agent_name": "X"}, headers=user_headers)
+    r = client.post("/api/calls", json={"agent_id": "A-1", "agent_name": "X", "lead_id": "L-1"}, headers=user_headers)
     assert r.status_code == 422
     assert any(e["field"] == "recording_url" for e in r.json()["detail"]["errors"])
     assert db.query(Call).count() == 0
@@ -73,10 +73,10 @@ def test_missing_recording_link_is_rejected_and_logged_not_saved(client, user_he
 @pytest.mark.parametrize(
     "body,field",
     [
-        ({"recording_url": "https://x.example.com/a.mp3", "agent_name": "X"}, "agent_id"),
+        ({"recording_url": "https://x.example.com/a.mp3", "agent_name": "X", "lead_id": "L-1"}, "agent_id"),
         ({"recording_url": "https://x.example.com/a.mp3", "agent_id": "A"}, "agent_name"),
-        ({"recording_url": "not a link", "agent_id": "A", "agent_name": "X"}, "recording_url"),
-        ({"recording_url": "https://x.example.com/a.mp3", "agent_id": "A", "agent_name": "X", "call_date": "yesterday"}, "call_date"),
+        ({"recording_url": "not a link", "agent_id": "A", "agent_name": "X", "lead_id": "L-1"}, "recording_url"),
+        ({"recording_url": "https://x.example.com/a.mp3", "agent_id": "A", "agent_name": "X", "lead_id": "L-1", "call_date": "yesterday"}, "call_date"),
     ],
 )
 def test_other_incomplete_payloads_rejected(client, user_headers, db, body, field):
@@ -113,7 +113,7 @@ def test_task_id_is_derived_from_link_and_date_only():
 
 # ---- 5. No token (401) --------------------------------------------------------------
 def test_no_login_returns_401_and_saves_nothing(client, db):
-    r = client.post("/api/calls", json={"recording_url": "https://x.example.com/a.mp3", "agent_id": "A", "agent_name": "X"})
+    r = client.post("/api/calls", json={"recording_url": "https://x.example.com/a.mp3", "agent_id": "A", "agent_name": "X", "lead_id": "L-1"})
     assert r.status_code == 401
     assert db.query(Call).count() == 0 and rejected(db) == []
 
@@ -135,7 +135,7 @@ def test_list_requires_login(client):
 
 
 def test_intake_webhook_without_or_with_wrong_token_is_401(client, db):
-    body = {"recording_url": "https://x.example.com/a.mp3", "agent_id": "A", "agent_name": "X"}
+    body = {"recording_url": "https://x.example.com/a.mp3", "agent_id": "A", "agent_name": "X", "lead_id": "L-1"}
     assert client.post("/api/webhooks/intake", json=body).status_code == 401
     assert client.post("/api/webhooks/intake", json=body, headers={"X-Webhook-Token": "nope"}).status_code == 401
     assert db.query(Call).count() == 0 and rejected(db) == []
@@ -155,7 +155,7 @@ def test_user_login_token_does_not_open_webhooks(client, user_headers, idle_call
 
 
 def test_intake_webhook_with_token_creates_call_and_ignores_stub_scenario(client, db):
-    body = {"recording_url": "https://x.example.com/hook.mp3", "agent_id": "A", "agent_name": "X", "stub_scenario": "invalid_band"}
+    body = {"recording_url": "https://x.example.com/hook.mp3", "agent_id": "A", "agent_name": "X", "lead_id": "L-1", "stub_scenario": "invalid_band"}
     r = client.post("/api/webhooks/intake", json=body, headers={"X-Webhook-Token": INTAKE_TOKEN})
     assert r.status_code == 201
     from app.auto_stub import wait_for_idle
@@ -320,7 +320,7 @@ def test_scenario_rejected_when_test_mode_off(client, user_headers, monkeypatch,
     monkeypatch.setenv("TEST_MODE", "false")
     r = client.post(
         "/api/calls",
-        json={"recording_url": "https://x.example.com/a.mp3", "agent_id": "A", "agent_name": "X", "stub_scenario": "normal"},
+        json={"recording_url": "https://x.example.com/a.mp3", "agent_id": "A", "agent_name": "X", "lead_id": "L-1", "stub_scenario": "normal"},
         headers=user_headers,
     )
     assert r.status_code == 422 and db.query(Call).count() == 0
@@ -339,7 +339,7 @@ def test_config_offers_all_six_scenarios_in_test_mode(client, user_headers):
 def test_rejected_payload_copy_has_no_tokens(client, user_headers, db):
     client.post(
         "/api/calls",
-        json={"agent_id": "A", "agent_name": "X", "api_token": "SECRET-VALUE", "recording_url": "ftp://x.example.com/a?token=SECRET-VALUE&x=1"},
+        json={"agent_id": "A", "agent_name": "X", "lead_id": "L-1", "api_token": "SECRET-VALUE", "recording_url": "ftp://x.example.com/a?token=SECRET-VALUE&x=1"},
         headers=user_headers,
     )
     dumped = str([r.payload for r in rejected(db)])
@@ -358,3 +358,80 @@ def test_dev_mock_refuses_to_load_in_production(monkeypatch):
     monkeypatch.setenv("APP_ENV", "production")
     with pytest.raises(RuntimeError):
         DevMockProvider()
+
+
+def test_stats_requires_login_and_counts(client, user_headers, db):
+    assert client.get("/api/calls/stats").status_code == 401
+    s = client.get("/api/calls/stats", headers=user_headers).json()
+    assert s["total"] == 0 and s["processed"] == 0 and s["rejected"] >= 0
+    assert [b["band"] for b in s["bands"]] == [0, 1, 2, 3, 4, 5]
+    assert len(s["per_day"]) == 14
+
+
+def test_lead_id_is_required(client, user_headers, db):
+    body = {"recording_url": "https://x.example.com/a.mp3", "agent_id": "A", "agent_name": "X"}
+    r = client.post("/api/calls", json=body, headers=user_headers)
+    assert r.status_code == 422
+    assert any(e["field"] == "lead_id" for e in r.json()["detail"]["errors"])
+    body["lead_id"] = "   "
+    assert client.post("/api/calls", json=body, headers=user_headers).status_code == 422
+
+
+def test_retry_failed_call_runs_again_and_finishes(client, user_headers, drop, db):
+    from app.auto_stub import wait_for_idle
+
+    task_id = drop("recording_link_fails").json()["call"]["task_id"]
+    assert get_call(client, user_headers, task_id)["status"] == "failed"
+
+    r = client.post(f"/api/calls/{task_id}/retry", headers=user_headers)
+    assert r.status_code == 200
+    wait_for_idle()
+    c = get_call(client, user_headers, task_id)
+    assert c["status"] in ("sent_to_auto", "done", "failed")
+    assert c["task_id"] == task_id
+
+
+def test_retry_refused_unless_failed_or_unknown(client, user_headers, drop, db):
+    task_id = drop("normal").json()["call"]["task_id"]
+    assert get_call(client, user_headers, task_id)["status"] == "done"
+    assert client.post(f"/api/calls/{task_id}/retry", headers=user_headers).status_code == 409
+    assert client.post("/api/calls/nope/retry", headers=user_headers).status_code == 404
+    assert client.post(f"/api/calls/{task_id}/retry").status_code == 401
+
+
+def test_auto_policies_lists_the_two_agent_policies(client, user_headers, db):
+    assert client.get("/api/calls/auto-policies").status_code == 401
+    items = client.get("/api/calls/auto-policies", headers=user_headers).json()["items"]
+    assert [p["agent"] for p in items] == ["Lead Score", "Call Audit"]
+    assert [len(p["judgments"]) for p in items] == [8, 3]
+    assert all(p["published"] and p["rules"] for p in items)
+
+
+def test_ai_insights_come_from_real_calls(client, user_headers, drop, db):
+    # Empty database: one honest "no calls yet" insight, no demo data.
+    empty = client.get("/api/ai/insights", headers=user_headers).json()
+    assert [i["title"] for i in empty["insights"]] == ["No calls yet"]
+
+    drop("normal", recording_url="https://r.example.com/i1.mp3")
+    drop("recording_link_fails", recording_url="https://r.example.com/i2.mp3")
+    data = client.post("/api/ai/insights/analyze", json={}, headers=user_headers).json()
+    text = " ".join(i["title"] + " " + i["description"] for i in data["insights"])
+    assert "DEMO" not in text and "transaction" not in text.lower()
+    assert any("failed" in i["title"] for i in data["insights"])
+    assert any(a["action_type"] == "retry_failed" for a in data["actions"])
+    assert data["patterns"]
+
+
+def test_ai_manager_answers_about_calls(client, user_headers, drop, db, monkeypatch):
+    from app.services.ai import chat_service
+
+    monkeypatch.setattr(chat_service, "client", None)  # no model: the data-backed fallback answers
+    drop("normal", recording_url="https://r.example.com/c1.mp3")
+    drop("recording_link_fails", recording_url="https://r.example.com/c2.mp3")
+    ask = lambda q: client.post("/api/ai/chat", json={"message": q}, headers=user_headers).json()
+    assert "2" in ask("How are my sales calls doing?")["response"]
+    assert "failed" in ask("Show failed calls")["response"].lower()
+    reply = ask("Create a policy and show recent logins")["response"]
+    assert "policy" not in ask("Show high-intent leads")["response"].lower()
+    assert "Sample Agent" in ask("How are my agents scoring on audit?")["response"]
+    assert reply

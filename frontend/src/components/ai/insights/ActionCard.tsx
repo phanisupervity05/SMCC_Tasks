@@ -8,6 +8,7 @@ export interface ActionItem {
   title: string
   priority: 'high' | 'medium' | 'low'
   estimated_impact: string
+  action_type?: string
 }
 
 interface ActionCardProps {

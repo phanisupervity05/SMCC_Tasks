@@ -776,40 +776,6 @@ async def analyze_policy(
 # Insights Endpoints
 # ============================================================================
 
-# In-memory cache for demo insights (replace with database in production)
-_insights_cache: dict = {}
-
-
-def _init_demo_insights():
-    """
-    Initialize demo insights from the centralized seed script.
-    All demo data is defined in scripts/seed_ai_demo.py - single source of truth.
-    """
-    if _insights_cache:
-        return  # Already initialized
-    
-    now = datetime.now(timezone.utc)
-    
-    # Use data from centralized seed script
-    demo_insights = get_demo_insights()
-    
-    # Add [DEMO] tag to titles if not present
-    for insight in demo_insights:
-        if "[DEMO]" not in insight.get("title", ""):
-            insight["title"] = insight.get("title", "") + " [DEMO]"
-    
-    _insights_cache["insights"] = demo_insights
-    _insights_cache["patterns"] = DEMO_PATTERNS
-    _insights_cache["actions"] = DEMO_ACTIONS
-    _insights_cache["generated_at"] = now.isoformat()
-    
-    logger.info(f"Initialized {len(demo_insights)} demo insights, {len(DEMO_PATTERNS)} patterns, {len(DEMO_ACTIONS)} actions from seed script")
-
-
-# Initialize demo insights on module load
-_init_demo_insights()
-
-
 @router.get("/insights", response_model=InsightsListResponse)
 async def list_insights(
     batch_id: Optional[str] = Query(None, description="Filter by batch ID"),
@@ -819,27 +785,15 @@ async def list_insights(
     db: Session = Depends(get_db)
 ):
     """
-    Get AI-generated insights. Returns cached demo insights on first load.
+    Insights computed from the real calls: failed/stuck calls, rejected requests,
+    high-intent leads, audit quality and agent performance.
     """
     try:
-        # Return cached demo insights if available
-        if _insights_cache and not batch_id and not date_start and not date_end:
-            return InsightsListResponse(
-                insights=_insights_cache.get("insights", []),
-                patterns=_insights_cache.get("patterns", []),
-                actions=_insights_cache.get("actions", []),
-                total_count=len(_insights_cache.get("insights", [])),
-                generated_at=datetime.now(timezone.utc),
-                analysis_duration_ms=0.5
-            )
-        
-        # Otherwise generate fresh insights
-        insights = await ai_service.generate_insights(
+        return await ai_service.generate_insights(
             batch_id=batch_id,
             date_range_start=date_start,
             date_range_end=date_end
         )
-        return insights
     except Exception as e:
         logger.error(f"Insights error: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate insights")

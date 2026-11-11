@@ -18,7 +18,7 @@ const navItems = [
   {
     title: 'Calls',
     items: [
-      { href: '/', label: 'Calls', icon: Icons.dashboard },
+      { href: '/', label: 'Calls Dashboard', icon: Icons.dashboard },
       { href: '/calls/new', label: 'Drop a call', icon: Icons.upload },
       { href: '/rejected', label: 'Rejected requests', icon: Icons.alertTriangle },
     ],

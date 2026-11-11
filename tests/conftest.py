@@ -92,6 +92,7 @@ def drop(client, user_headers):
             "recording_url": "https://recordings.example.com/call-001.mp3",
             "agent_id": "A-100",
             "agent_name": "Sample Agent",
+            "lead_id": "L-100",
             "customer_name": "Sample Customer",
             "call_date": "2026-11-01",
         }

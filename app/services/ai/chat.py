@@ -23,37 +23,29 @@ class ChatService(GeminiService):
     
     MAX_TOOL_ITERATIONS = 5
     
-    SYSTEM_PROMPT = """You are the **Supervity AI Manager**, an intelligent AI assistant for the Supervity command center platform.
-Your role is to help users manage Supervity AI policies, understand insights, and navigate the platform.
+    SYSTEM_PROMPT = """You are the **Supervity AI Manager** inside the Supervity **Call Intelligence Command Center**.
+You help sales and call-quality teams understand and act on their sales calls. Always call yourself "Supervity AI" or "Supervity AI Manager". Never mention any underlying AI model or vendor.
 
-**IMPORTANT: You are the Supervity AI Manager. Always identify yourself as "Supervity" or "Supervity AI". Never mention any underlying AI technology or model names.**
+**What this product does**
+- Sales call recordings are dropped (a link or an audio file) with a sales agent ID, agent name and a **Lead ID** (all required). The call is handed to Supervity Auto, which transcribes it and returns two results.
+- **Lead Score**: a purchase-intent **band 0 to 5** with a reason and customer quotes as evidence. Band 0 = no usable conversation, 1 = no purchase intent, 2 = weak interest, 3 = medium intent, 4 = high intent, 5 = immediate intent (a dated site visit or booking). Scored by the ORL Lead Score Policy.
+- **Call Audit**: the sales agent is scored 1 to 5 on **Politeness**, **Information** and **Query solved**, with a score percent, by the ORL Call Audit Policy.
+- **Statuses**: received, sent to Auto, done (processed), failed. A call in Sent to Auto for too long is flagged **stuck**. A failed call can be run again with the **Re-run** button.
+- **Rejected requests**: requests refused at intake because a field was missing or invalid (for example no Lead ID). They are never saved as calls.
+- **Pages**: Calls Dashboard (KPIs, band chart, status, trends, agent table, call list), Drop a call, Rejected requests, Auto Policies (the two policies, read only), AI Insights.
+- The same recording and call date always gives the same call, so dropping it twice never duplicates it.
 
-**Greetings:** When greeting users, say things like:
-- "Greetings from Supervity!"
-- "Hello! I'm your Supervity AI Manager."
-- "Welcome! Supervity AI at your service."
+**How to answer**
+- For any number, list or detail about calls, **call a tool first** and answer from its result. Never invent counts, names, scores, task IDs or trends. If a tool returns nothing, say there is no data yet.
+- Answer in the language of the product: calls, leads, bands, audits, sales agents, Auto. Do not talk about generic users, logins, transactions, invoices or system administration.
+- If asked something unrelated to this product, say briefly that you focus on the sales calls in this Command Center and offer what you can do.
+- You can read data and explain. You cannot drop, edit, delete or re-run calls yourself: tell the user where to do it (Drop a call page, or Re-run on a failed call).
+- Be concise and specific. Use **bold** for key numbers and terms, and bullets for lists. When you mention a call, include its task ID.
+- When useful, end with one short next step, such as which failed calls to re-run or which band 4-5 leads to follow up first.
 
-**Your Capabilities:**
-- Answer questions about the platform and its features
-- Help create and manage Supervity AI policies using natural language
-- Explain insights and patterns in data
-- Generate reports and summaries
-- Execute actions through available tools
+**Greetings:** "Hello! I'm your Supervity AI Manager. I can tell you how your sales calls are doing."
 
-**Response Guidelines:**
-- Be concise, helpful, and professional
-- Use **bold** for emphasis and important terms
-- Use bullet points for lists
-- When mentioning actions, be specific about what you can do
-- If you used a tool, explain what you did
-- Always refer to yourself as "Supervity AI" or "Supervity AI Manager"
-
-**Available Tools:**
-- list_recent_activity: Get recent system activity
-- get_system_stats: Get system statistics
-- generate_report: Create reports
-- explain_page: Explain page functionality
-- create_policy: Create new Supervity AI policies"""
+**Tools:** get_call_stats, list_calls, get_call_details, list_rejected_requests, explain_page."""
 
     async def chat(
         self,
@@ -180,93 +172,97 @@ Your role is to help users manage Supervity AI policies, understand insights, an
         return prompt
     
     def _mock_chat(self, message: str, context: Optional[ChatContext]) -> str:
-        """Generate mock AI response for development/demo."""
-        message_lower = message.lower()
-        
-        if "help" in message_lower or "what can you" in message_lower:
-            return """I can help you with several things:
+        """Used when the AI model is not available. Still answers from the real calls data."""
+        m = message.lower()
+        stats = tool_executor.execute("get_call_stats", {})
+        if "error" in stats:
+            return "I couldn't read the calls data just now. Please try again in a moment."
+        total = stats["total"]
+        bands = {b["band"]: b["count"] for b in stats["bands"]}
 
-**AI Policies**
-* Create new policies using natural language
-* Translate rules into structured conditions
-* Manage and organize your policy library
+        if any(k in m for k in ("help", "what can you", "capab")):
+            return (
+                "I can answer questions about your **sales calls**:\n\n"
+                "* How many calls are **processed**, **failed** or **rejected**\n"
+                "* The **lead band** mix (band 0 to 5) and your high-intent leads\n"
+                "* **Call audit** scores and how each sales agent is doing\n"
+                "* Calls that are **stuck** or need a **Re-run**\n"
+                "* What each page of this Command Center does\n\n"
+                "What would you like to know?"
+            )
+        if any(k in m for k in ("explain", "this page", "what is this")):
+            page = context.page if context and context.page else "/"
+            return tool_executor.execute("explain_page", {"page_path": page})
+        if "reject" in m:
+            r = tool_executor.execute("list_rejected_requests", {"limit": 5})
+            if not r.get("items"):
+                return "There are **no rejected requests**. Every request reached intake with valid fields."
+            lines = "\n".join(f"* {i['reason']}" for i in r["items"])
+            return f"**{r['total']}** requests were rejected at intake. The latest reasons:\n\n{lines}"
+        if total == 0:
+            return "There are **no calls** in the Command Center yet. Use **Drop a call** to add the first one."
+        if "fail" in m or "re-run" in m or "rerun" in m or "retry" in m:
+            r = tool_executor.execute("list_calls", {"status": "failed", "limit": 5})
+            if not r["total_matching"]:
+                return "No calls have failed. Everything has either finished or is still processing."
+            lines = "\n".join(
+                f"* `{c['task_id']}` ({c['agent_name']}): {c['failure_reason'] or 'no reason recorded'}"
+                for c in r["calls"]
+            )
+            n = r["total_matching"]
+            return (
+                f"**{n}** {'call has' if n == 1 else 'calls have'} failed:\n\n{lines}\n\n"
+                "Open the Calls Dashboard and use **Re-run** on each failed call."
+            )
+        if "stuck" in m:
+            n = stats["stuck"]
+            return (
+                f"**{n}** {'call is' if n == 1 else 'calls are'} stuck in Sent to Auto. "
+                + ("Check the Orchestrator and the Auto workflow run." if n else "Nothing is waiting too long.")
+            )
+        if any(k in m for k in ("band", "lead", "intent", "hot")):
+            hot = bands.get(4, 0) + bands.get(5, 0)
+            mix = ", ".join(f"band {b}: **{n}**" for b, n in sorted(bands.items()))
+            return (
+                f"Lead score mix across scored calls: {mix}.\n\n"
+                f"**{hot}** high-intent {'lead' if hot == 1 else 'leads'} (band 4-5) to follow up first."
+            )
+        if any(k in m for k in ("audit", "agent", "polite", "quality", "perform")):
+            avg = stats["avg_audit_percent"]
+            top = [a for a in stats["agents"] if a["avg_audit_percent"] is not None][:5]
+            lines = "\n".join(
+                f"* {a['agent_name']}: **{a['avg_audit_percent']:.0f}%** over {a['calls']} calls" for a in top
+            )
+            head = f"Average audit score is **{avg:.0f}%**." if avg is not None else "No calls have been audited yet."
+            return head + (f"\n\n{lines}" if lines else "")
+        if "insight" in m:
+            return (
+                "Open **AI Insights** for what needs attention: failed and stuck calls, rejected requests, "
+                "high-intent leads and the weakest audit area."
+            )
+        rate = f"{stats['success_rate']}%" if stats["success_rate"] is not None else "n/a"
+        audit = f"* Average audit score **{stats['avg_audit_percent']:.0f}%**\n" if stats["avg_audit_percent"] is not None else ""
+        return (
+            "Here is where your sales calls stand:\n\n"
+            f"* **{total}** total calls, **{stats['processed']}** processed ({rate} success)\n"
+            f"* **{stats['in_progress']}** in progress, **{stats['failed']}** failed, "
+            f"**{stats['rejected']}** rejected at intake\n"
+            + audit
+            + "\nAsk me about lead bands, agent audits, failed calls or rejected requests."
+        )
 
-**AI Insights**
-* Analyze patterns in your data
-* Identify anomalies and trends
-* Suggest optimizations and improvements
-
-**General Assistance**
-* Navigate the platform
-* Generate reports
-* Understand features and capabilities
-
-What would you like to explore?"""
-
-        elif "activity" in message_lower or "recent" in message_lower:
-            return """Here's a summary of **recent activity**:
-
-**Last 24 Hours**
-* 156 user logins
-* 23 policy executions
-* 8 new insights generated
-* 2 alerts resolved
-
-Would you like me to generate a detailed report?"""
-
-        elif "report" in message_lower:
-            return """I can generate several types of reports:
-
-1. **Activity Report** - User actions and system events
-2. **Audit Report** - Security and compliance logs
-3. **Performance Report** - System metrics and trends
-4. **User Report** - User statistics and engagement
-5. **Policy Report** - Policy execution statistics
-
-Which report would you like?"""
-
-        elif "policy" in message_lower or "policies" in message_lower:
-            return """**AI Policies** allow you to define business rules in natural language.
-
-For example, you can write:
-> "If the amount is less than $100, auto-approve it"
-
-The AI will translate this into executable logic that runs automatically.
-
-Would you like me to help you create a new policy?"""
-
-        elif "insight" in message_lower:
-            return """**AI Insights** proactively analyze your data to find:
-
-* **Patterns** - Recurring behaviors and trends
-* **Anomalies** - Unusual activities that need attention
-* **Recommendations** - Suggested actions to optimize
-
-Visit the **AI Insights** page to explore these in detail."""
-
-        else:
-            return f"""I understand you're asking about: *"{message}"*
-
-I'm here to help with AI policies, insights, and general platform navigation. Could you provide more details?
-
-**Quick suggestions:**
-* "Help me create a new policy"
-* "Show me recent activity"
-* "Explain this page"
-* "Generate a report" """
-    
     def _generate_suggestions(self, message: str, context: Optional[ChatContext]) -> List[str]:
-        """Generate follow-up suggestions based on conversation."""
-        message_lower = message.lower()
-        
-        if "policy" in message_lower:
-            return ["Show me my active policies", "Create a new policy", "Explain policy conditions"]
-        elif "insight" in message_lower:
-            return ["Run a new analysis", "Show critical insights", "Export insights report"]
-        elif "report" in message_lower:
-            return ["Generate activity report", "Show user statistics", "Export to Excel"]
-        else:
-            return ["What can you help me with?", "Show me insights", "Create a policy"]
+        """Follow-up suggestions about the calls, based on the conversation."""
+        m = message.lower()
+        if "fail" in m or "re-run" in m or "retry" in m:
+            return ["Why did these calls fail?", "Show rejected requests", "Are any calls stuck?"]
+        if "reject" in m:
+            return ["Show failed calls", "How do I drop a call?", "Show call stats"]
+        if any(k in m for k in ("band", "lead", "intent")):
+            return ["Show band 5 calls", "Which agents have the best audit scores?", "How many calls failed?"]
+        if any(k in m for k in ("audit", "agent", "polite")):
+            return ["Which audit check is weakest?", "Show band 4-5 leads", "Show failed calls"]
+        return ["How many calls were processed?", "Show high-intent leads", "Which agents score lowest on audit?"]
 
 
 # Singleton instance

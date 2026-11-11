@@ -14,7 +14,7 @@ interface CommandPaletteProps {
 
 // Recent items (would come from localStorage/state in real app)
 const recentItems = [
-  { id: 'recent-1', label: 'Calls', icon: Icons.dashboard, href: '/' },
+  { id: 'recent-1', label: 'Calls Dashboard', icon: Icons.dashboard, href: '/' },
   {
     id: 'recent-2',
     label: 'Run Diagnostics',
@@ -45,7 +45,7 @@ const navigationItems = [
   },
   {
     id: 'ai-policies',
-    label: 'Go to AI Policies',
+    label: 'Go to Auto Policies',
     icon: Icons.brain,
     href: '/ai/policies',
   },
