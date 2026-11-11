@@ -19,9 +19,11 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Boolean,
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -75,6 +77,9 @@ class Call(Base):
     call_audit = relationship(
         "CallAudit", back_populates="call", uselist=False, lazy="selectin"
     )
+    flags = relationship(
+        "CallFlag", back_populates="call", lazy="selectin", order_by="CallFlag.id"
+    )
 
 
 class LeadScore(Base):
@@ -108,6 +113,45 @@ class CallAudit(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
 
     call = relationship("Call", back_populates="call_audit")
+
+
+class CommandPolicy(Base):
+    """A rule the Command Center itself enforces (not a Supervity Auto policy)."""
+
+    __tablename__ = "command_policies"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(120), nullable=False, unique=True)
+    description = Column(Text, nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    stage = Column(String(16), nullable=False)  # "intake" (before a call is saved) or "results" (once scored)
+    action = Column(String(16), nullable=False)  # "reject" (intake only) or "flag"
+    match_mode = Column(String(8), nullable=False, default="all")  # "all" or "any"
+    conditions = Column(JSON, nullable=False, default=list)  # [{"field", "operator", "value"}]
+    message = Column(String(255), nullable=True)  # shown when the policy matches
+    source = Column(String(16), nullable=False, default="builder")  # "builder" or "ai"
+    natural_language = Column(Text, nullable=True)
+    hit_count = Column(Integer, nullable=False, default=0)
+    created_by = Column(String(128), nullable=True)
+    updated_by = Column(String(128), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=utcnow, onupdate=utcnow)
+
+
+class CallFlag(Base):
+    """A call a policy marked for review."""
+
+    __tablename__ = "call_flags"
+    __table_args__ = (UniqueConstraint("task_id", "policy_id", name="uq_call_flags_task_policy"),)
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(String(64), ForeignKey("calls.task_id"), nullable=False, index=True)
+    policy_id = Column(Integer, nullable=False, index=True)
+    policy_name = Column(String(120), nullable=False)
+    message = Column(String(500), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+    call = relationship("Call", back_populates="flags")
 
 
 class RejectedRequest(Base):

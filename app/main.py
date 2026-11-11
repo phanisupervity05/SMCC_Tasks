@@ -48,6 +48,7 @@ from .routers import (
     examples_router,
     health_router,
     items_router,
+    policies_router,
     webhooks_router,
 )
 from .security import get_current_user, verify_access
@@ -176,6 +177,7 @@ api_router.include_router(examples_router)
 
 # Call lead-score / call-audit: dashboard API (user login) and webhooks (service token)
 api_router.include_router(calls_router)
+api_router.include_router(policies_router)
 api_router.include_router(webhooks_router)
 
 

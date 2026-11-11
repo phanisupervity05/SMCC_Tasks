@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from ..models.call import Call, CallAudit, CallStatus, LeadScore, utcnow
 from .call_intake import fail_call, record_rejection
+from .policy_engine import run_results_policies
 from .call_rules import (
     AGENT_CALL_AUDIT,
     AGENT_LEAD_SCORE,
@@ -143,6 +144,11 @@ def process_output(db: Session, payload, *, endpoint: str = OUTPUT_ENDPOINT) -> 
         call.status = CallStatus.DONE
         call.failure_reason = None
         db.commit()
+        try:
+            run_results_policies(db, call)  # flag for review; never fails the result
+        except Exception:
+            db.rollback()
+            log.exception("Results policies failed for %s", call.task_id)
     else:
         call.updated_at = utcnow()  # a result arrived
         db.commit()

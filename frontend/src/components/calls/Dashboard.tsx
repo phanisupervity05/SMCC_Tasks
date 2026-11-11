@@ -89,8 +89,8 @@ export function CallsDashboard({ stats }: { stats: CallsStats | null }) {
   if (!stats) {
     return (
       <div className='space-y-4'>
-        <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-6'>
+          {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className='h-28 w-full' />
           ))}
         </div>
@@ -117,7 +117,7 @@ export function CallsDashboard({ stats }: { stats: CallsStats | null }) {
           {stats.missing_lead_id} {stats.missing_lead_id === 1 ? 'call has' : 'calls have'} no Lead ID (saved before it became required). Open the call to add it.
         </div>
       )}
-      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-5'>
+      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-6'>
         <Kpi label='Total calls' value={stats.total} hint={`${stats.in_progress} in progress`} />
         <Kpi
           label='Processed'
@@ -136,6 +136,12 @@ export function CallsDashboard({ stats }: { stats: CallsStats | null }) {
           value={stats.rejected}
           hint='Requests refused at intake'
           tone={stats.rejected ? 'text-amber-600' : 'text-brand-navy'}
+        />
+        <Kpi
+          label='Needs review'
+          value={stats.flagged}
+          hint='Flagged by a policy'
+          tone={stats.flagged ? 'text-amber-600' : 'text-brand-navy'}
         />
         <Kpi
           label='Avg audit score'

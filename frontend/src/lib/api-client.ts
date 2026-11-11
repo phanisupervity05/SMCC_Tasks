@@ -69,7 +69,7 @@ async function apiClientFetch<T = unknown>(endpoint: string, options: RequestIni
       typeof detail === 'string'
         ? detail
         : fieldErrors?.map((e) => `${e.field}: ${e.message}`).join('; ') ||
-          'An API error occurred.'
+          (typeof detail?.message === 'string' ? detail.message : 'An API error occurred.')
     throw new ApiError(message, response.status, fieldErrors)
   }
 

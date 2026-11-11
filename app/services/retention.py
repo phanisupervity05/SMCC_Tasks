@@ -21,7 +21,7 @@ from datetime import timedelta
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from ..models.call import Call, CallAudit, CallStatus, LeadScore, RejectedRequest, utcnow
+from ..models.call import Call, CallAudit, CallFlag, CallStatus, LeadScore, RejectedRequest, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +79,7 @@ async def purge_old_calls(db: Session, days: int, *, apply: bool = False, storag
         chunk = expired_tasks[i:i + BATCH]
         db.query(LeadScore).filter(LeadScore.task_id.in_(chunk)).delete(synchronize_session=False)
         db.query(CallAudit).filter(CallAudit.task_id.in_(chunk)).delete(synchronize_session=False)
+        db.query(CallFlag).filter(CallFlag.task_id.in_(chunk)).delete(synchronize_session=False)
         db.query(Call).filter(Call.task_id.in_(chunk)).delete(synchronize_session=False)
         db.commit()
     rejected.delete(synchronize_session=False)

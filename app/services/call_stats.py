@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from sqlalchemy import Integer, case, func
 from sqlalchemy.orm import Session
 
-from ..models.call import Call, CallAudit, CallStatus, LeadScore, RejectedRequest, utcnow
+from ..models.call import Call, CallAudit, CallFlag, CallStatus, LeadScore, RejectedRequest, utcnow
 from .call_views import stuck_after_minutes
 
 MAX_RANGE_DAYS = 92
@@ -96,6 +96,13 @@ def compute_stats(
         or 0
     )
 
+    flagged = (
+        scoped(func.count(func.distinct(CallFlag.task_id)))
+        .join(CallFlag, CallFlag.task_id == Call.task_id)
+        .scalar()
+        or 0
+    )
+
     # Calls per day
     per_day = {(first + timedelta(days=i)).isoformat(): 0 for i in range((last - first).days + 1)}
     for day, n in scoped(func.date(Call.created_at), func.count(Call.id)).group_by(func.date(Call.created_at)).all():
@@ -138,6 +145,7 @@ def compute_stats(
         "failed": by_status[CallStatus.FAILED],
         "rejected": db.query(func.count(RejectedRequest.id)).scalar() or 0,
         "stuck": stuck,
+        "flagged": flagged,
         "missing_lead_id": missing_lead,
         "success_rate": round(done * 100 / total, 1) if total else None,
         "avg_audit_percent": _avg(avg_audit),

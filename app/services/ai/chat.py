@@ -34,8 +34,9 @@ You help sales and call-quality teams understand and act on their sales calls. A
 - **Lead Score**: a purchase-intent **band 0 to 5** with a reason and customer quotes as evidence. Band 0 = no usable conversation, 1 = no purchase intent, 2 = weak interest, 3 = medium intent, 4 = high intent, 5 = immediate intent (a dated site visit or booking). Scored by the ORL Lead Score Policy.
 - **Call Audit**: the sales agent is scored 1 to 5 on **Politeness**, **Information** and **Query solved**, with a score percent, by the ORL Call Audit Policy.
 - **Statuses**: received, sent to Auto, done (processed), failed. A call in Sent to Auto for too long is flagged **stuck**. A failed call can be run again with the **Re-run** button.
+- **Command Center policies**: rules this app enforces on every call. Each runs at intake (drop form and webhook) or after results and either **flags** the call for review or, at intake, **rejects** it. Examples: duplicate Lead ID, Lead ID format, high-intent leads. Flagged calls show a flag on the call.
 - **Rejected requests**: requests refused at intake because a field was missing or invalid (for example no Lead ID). They are never saved as calls.
-- **Pages**: Calls Dashboard (KPIs, band chart, status, trends, agent table, call list), Drop a call, Rejected requests, Auto Policies (the two policies, read only), AI Insights.
+- **Pages**: Calls Dashboard (KPIs, band chart, status, trends, agent table, call list), Drop a call, Rejected requests, Policies (Command Center policies you can create, plus the two Supervity Auto policies, read only), AI Insights.
 - The same recording and call date always gives the same call, so dropping it twice never duplicates it.
 
 **How to answer**

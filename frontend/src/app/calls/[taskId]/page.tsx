@@ -112,6 +112,24 @@ export default function CallDetailPage() {
         </div>
       )}
 
+      {call.flags.length > 0 && (
+        <div role='status' className='flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900'>
+          <Icons.flag className='mt-0.5 h-5 w-5 shrink-0' />
+          <div>
+            <p className='font-semibold'>
+              Flagged for review by {call.flags.length} {call.flags.length === 1 ? 'policy' : 'policies'}
+            </p>
+            <ul className='mt-1 list-disc pl-5'>
+              {call.flags.map((f) => (
+                <li key={f.policy_id}>
+                  <span className='font-medium'>{f.policy}:</span> {f.message}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {call.status === 'failed' && (
         <div role='alert' className='flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800'>
           <Icons.alertCircle className='mt-0.5 h-5 w-5 shrink-0' />

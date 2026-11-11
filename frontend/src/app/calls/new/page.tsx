@@ -122,7 +122,11 @@ export default function DropCallPage() {
     } catch (err) {
       if (err instanceof ApiError && err.fieldErrors?.length) {
         setErrors(err.fieldErrors)
-        setGeneralError('The backend rejected this call. Nothing was saved.')
+        setGeneralError(
+          err.fieldErrors.some((e) => e.field === 'policy')
+            ? 'A policy blocked this call. Nothing was saved.'
+            : 'The backend rejected this call. Nothing was saved.'
+        )
       } else {
         setGeneralError(err instanceof Error ? err.message : 'Something went wrong.')
       }
@@ -158,7 +162,12 @@ export default function DropCallPage() {
                   <ul className='mt-1 list-disc pl-5'>
                     {errors.map((er, i) => (
                       <li key={i}>
-                        <span className='font-mono text-xs'>{er.field}</span>: {er.message}
+                        {er.field === 'policy' ? (
+                          <span className='font-semibold'>Policy</span>
+                        ) : (
+                          <span className='font-mono text-xs'>{er.field}</span>
+                        )}
+                        : {er.message}
                       </li>
                     ))}
                   </ul>

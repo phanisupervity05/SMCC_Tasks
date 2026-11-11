@@ -18,6 +18,7 @@ const stats: CallsStats = {
   rejected: 3,
   stuck: 1,
   missing_lead_id: 0,
+  flagged: 4,
   success_rate: 60,
   avg_audit_percent: 72.4,
   avg_band: 3.2,
@@ -46,6 +47,7 @@ describe('CallsDashboard', () => {
     expect(within(kpi('Processed')).getByText('6')).toBeInTheDocument()
     expect(within(kpi('Failed')).getByText('2')).toBeInTheDocument()
     expect(within(kpi('Rejected')).getByText('3')).toBeInTheDocument()
+    expect(within(kpi('Needs review')).getByText('4')).toBeInTheDocument()
     expect(within(kpi('Avg audit score')).getByText('72%')).toBeInTheDocument()
     expect(screen.getByText(/success rate 60%/i)).toBeInTheDocument()
     expect(screen.getByText(/1 stuck in auto/i)).toBeInTheDocument()

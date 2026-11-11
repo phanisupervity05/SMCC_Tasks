@@ -105,11 +105,11 @@ One call in full:
 
 Requests refused at intake before they became a call, each with the reason (for example a missing
 Lead ID or an invalid recording link). Nothing here was scored.""",
-        "/ai/policies": """**Auto Policies**
+        "/ai/policies": """**Policies**
 
-The two Supervity Auto policies the call agent uses, shown read only:
-* **ORL Lead Score Policy**: eight yes/no AI judgments and a first-match table that gives band 0 to 5
-* **ORL Call Audit Policy**: Politeness, Information and Query solved, each scored 1 to 5""",
+Two kinds, on two tabs:
+* **Command Center policies**: rules this app enforces on every call. Anyone approved can create, edit, switch off or delete them, with a rule builder or by describing the rule in plain English. A policy runs at intake (drop form and webhook) or after results, and either **flags** the call for review or, at intake, **rejects** it. Examples: duplicate Lead ID, Lead ID format, high-intent leads.
+* **Auto policies (call agent)**: the two Supervity Auto policies that score each call, shown read only. The **ORL Lead Score Policy** gives band 0 to 5 and the **ORL Call Audit Policy** scores Politeness, Information and Query solved from 1 to 5.""",
         "/ai/insights": """**AI Insights**
 
 Insights computed from your real calls: failed and stuck calls, rejected requests, high-intent leads
